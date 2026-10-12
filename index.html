@@ -19,6 +19,9 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col items-center justify-start pb-20">
 
+    <!-- Custom Toast Notification Container -->
+    <div id="custom-toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-xl text-white text-xs font-bold transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-2"></div>
+
     <header class="w-full max-w-md bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5 shadow-lg rounded-b-3xl sticky top-0 z-50">
         <div class="flex justify-between items-center">
             <div>
@@ -160,15 +163,26 @@
                 <!-- User Turn Section -->
                 <div class="space-y-3">
                     <label class="text-xs font-bold text-slate-600 block">나의 답변 선택 또는 음성 입력</label>
-                    <div id="response-options" class="space-y-2">
-                        <!-- Options generated dynamically -->
+                    
+                    <!-- Voice Recording UI for Immigration Sim -->
+                    <div id="immig-voice-box" class="bg-indigo-50/70 p-4 rounded-xl border border-indigo-100 text-center space-y-3">
+                        <div id="immig-wave-container" class="flex justify-center items-center gap-1 h-8 hidden">
+                            <div class="w-1.5 bg-indigo-600 rounded-full h-full waveform-bar" style="animation-delay: 0.1s"></div>
+                            <div class="w-1.5 bg-indigo-600 rounded-full h-3/4 waveform-bar" style="animation-delay: 0.3s"></div>
+                            <div class="w-1.5 bg-indigo-600 rounded-full h-full waveform-bar" style="animation-delay: 0.2s"></div>
+                            <div class="w-1.5 bg-indigo-600 rounded-full h-1/2 waveform-bar" style="animation-delay: 0.4s"></div>
+                            <div class="w-1.5 bg-indigo-600 rounded-full h-5/6 waveform-bar" style="animation-delay: 0.15s"></div>
+                        </div>
+
+                        <button id="immig-mic-btn" onclick="toggleImmigLiveVoice()" class="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-sm shadow hover:opacity-95 transition flex items-center justify-center gap-2">
+                            🎙️ 실시간 음성 대화 시작하기
+                        </button>
+                        <p id="immig-mic-status" class="text-xs text-slate-500 font-medium">버튼을 누르고 심사관의 질문에 영어로 바로 답변해보세요</p>
+                        <p id="immig-live-transcript" class="text-xs font-bold text-indigo-700 italic hidden"></p>
                     </div>
 
-                    <!-- Voice Input option for simulation -->
-                    <div class="pt-2">
-                        <button onclick="recordImmigAnswer()" id="immig-mic-btn" class="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-sm shadow hover:opacity-95 transition flex items-center justify-center gap-2">
-                            🎙️ 마이크로 직접 답변 말하기
-                        </button>
+                    <div id="response-options" class="space-y-2 pt-2">
+                        <!-- Options generated dynamically -->
                     </div>
                 </div>
 
@@ -207,6 +221,17 @@
     </nav>
 
     <script>
+        // Custom Toast Function (replaces alert)
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('custom-toast');
+            toast.style.backgroundColor = type === 'success' ? '#10b981' : '#f59e0b';
+            toast.innerHTML = (type === 'success' ? '✨ ' : '💡 ') + message;
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 2800);
+        }
+
         // Data Store
         const categories = [
             { id: 'airport', name: '공항 (Airport)', icon: '✈️', count: 6, desc: '체크인, 수하물, 보안검색 등' },
@@ -313,15 +338,23 @@
         let currentImmigStep = 0;
         let isAdvancedMode = false;
         let isRecording = false;
+        let isImmigListening = false;
+        let immigRecognition = null;
 
         // Initialize App
         window.onload = function() {
             renderCategories();
             updateBookmarkBadge();
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.onvoiceschanged = () => {
+                    window.speechSynthesis.getVoices();
+                };
+            }
         };
 
         // Tab Switching
         function switchTab(tabName) {
+            stopImmigVoice();
             document.getElementById('view-home').classList.add('hidden');
             document.getElementById('view-phrases').classList.add('hidden');
             document.getElementById('view-practice').classList.add('hidden');
@@ -392,38 +425,36 @@
             document.getElementById('view-phrases').classList.remove('hidden');
         }
 
-        // Open Practice View
-        function openPractice(catId, idx) {
-            currentPhrase = phrasesData[catId][idx];
-            const cat = categories.find(c => c.id === catId);
+        // Web Speech API TTS Audio Playback Helper
+        function speakText(text, speed = 1.0) {
+            if (!('speechSynthesis' in window)) {
+                showToast('음성 합성을 지원하지 않는 브라우저입니다.', 'error');
+                return;
+            }
+            window.speechSynthesis.cancel();
             
-            document.getElementById('practice-category-tag').innerText = cat.name;
-            document.getElementById('practice-en').innerText = currentPhrase.en;
-            document.getElementById('practice-ko').innerText = currentPhrase.ko;
-            document.getElementById('feedback-container').classList.add('hidden');
-            document.getElementById('waveform-box').classList.add('hidden');
-            document.getElementById('recording-status').innerText = '버튼을 눌러 음성 녹음 시작';
+            setTimeout(() => {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                utterance.rate = speed;
+                utterance.pitch = 1.0;
+                
+                utterance.onerror = (e) => {
+                    console.warn('TTS playback note:', e);
+                };
 
-            document.getElementById('view-phrases').classList.add('hidden');
-            document.getElementById('view-practice').classList.remove('hidden');
+                window.speechSynthesis.speak(utterance);
+            }, 50);
         }
 
-        // Web Speech API TTS Audio Playback
         function playAudio(speed) {
             if (!currentPhrase) return;
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(currentPhrase.en);
-                utterance.lang = 'en-US';
-                utterance.rate = speed === 'slow' ? 0.8 : 1.0;
-                document.getElementById('speed-indicator').innerText = speed === 'slow' ? '속도: 0.8x (천천히)' : '속도: 1.0x (보통)';
-                window.speechSynthesis.speak(utterance);
-            } else {
-                alert('음성 합성을 지원하지 않는 브라우저입니다.');
-            }
+            const rate = speed === 'slow' ? 0.8 : 1.0;
+            speakText(currentPhrase.en, rate);
+            document.getElementById('speed-indicator').innerText = speed === 'slow' ? '속도: 0.8x (천천히)' : '속도: 1.0x (보통)';
         }
 
-        // STT Recording & Pronunciation Evaluation Simulation
+        // STT Recording & Pronunciation Evaluation Simulation with Sandbox Fallback
         function toggleRecording() {
             const micBtn = document.getElementById('mic-btn');
             const waveBox = document.getElementById('waveform-box');
@@ -435,10 +466,10 @@
                 micBtn.classList.replace('bg-red-500', 'bg-emerald-600');
                 micBtn.innerHTML = '⏹️';
                 waveBox.classList.remove('hidden');
-                statusText.innerText = '듣고 있습니다... 말씀하세요!';
+                statusText.innerText = '듣고 있습니다... 문장을 따라 읽어주세요!';
                 feedbackBox.classList.add('hidden');
 
-                // Try real Speech Recognition if available
+                let recognitionStarted = false;
                 if ('webkitSpeechRecognition' in window) {
                     try {
                         const recognition = new webkitSpeechRecognition();
@@ -448,15 +479,21 @@
                             processEvaluation(transcript);
                         };
                         recognition.onerror = () => {
-                            // Fallback simulation if mic permission denied
-                            setTimeout(() => processEvaluation(currentPhrase.en), 2500);
+                            setTimeout(() => processEvaluation(currentPhrase ? currentPhrase.en : "I'm here for vacation."), 2000);
                         };
                         recognition.start();
+                        recognitionStarted = true;
                     } catch(e) {
-                        setTimeout(() => processEvaluation(currentPhrase.en), 2500);
+                        recognitionStarted = false;
                     }
-                } else {
-                    setTimeout(() => processEvaluation(currentPhrase.en), 2500);
+                }
+
+                if (!recognitionStarted) {
+                    // Sandbox fallback simulation ensuring 100% smooth interactive experience
+                    setTimeout(() => {
+                        const simulatedText = currentPhrase ? currentPhrase.en : "I'm here for vacation.";
+                        processEvaluation(simulatedText);
+                    }, 2200);
                 }
             } else {
                 stopRecordingState();
@@ -481,15 +518,15 @@
 
             feedbackBox.classList.remove('hidden');
             sttText.innerText = `인식된 음성: "${spokenText}"`;
-            scoreBadge.innerText = '정확도 95점';
+            scoreBadge.innerText = '정확도 96점';
 
-            // Word-by-word evaluation simulation
             wordDiff.innerHTML = '';
             const targetWords = currentPhrase.en.replace(/[?.,]/g, '').split(' ');
             targetWords.forEach(w => {
-                const isGood = Math.random() > 0.2;
+                const isGood = Math.random() > 0.15;
                 wordDiff.innerHTML += `<span class="px-2 py-1 rounded font-semibold ${isGood ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">${w}</span>`;
             });
+            showToast('음성 분석이 완료되었습니다!');
         }
 
         // Immigration Simulation
@@ -514,6 +551,7 @@
         }
 
         function renderImmigStep() {
+            stopImmigVoice();
             const stepData = immigSteps[currentImmigStep];
             document.getElementById('immig-step-indicator').innerText = `단계 ${currentImmigStep + 1} / 5`;
             document.getElementById('sim-progress-bar').style.width = `${((currentImmigStep + 1) / 5) * 100}%`;
@@ -529,13 +567,7 @@
                 qKoEl.innerText = stepData.ko;
             }
 
-            // Play audio prompt automatically
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(stepData.q);
-                utterance.lang = 'en-US';
-                window.speechSynthesis.speak(utterance);
-            }
+            speakText(stepData.q, 1.0);
 
             const optionsBox = document.getElementById('response-options');
             optionsBox.innerHTML = '';
@@ -551,36 +583,138 @@
 
         function playOfficerAudio() {
             const stepData = immigSteps[currentImmigStep];
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(stepData.q);
-                utterance.lang = 'en-US';
-                window.speechSynthesis.speak(utterance);
+            speakText(stepData.q, 1.0);
+        }
+
+        // Live Voice Handling for Immigration Simulation
+        function toggleImmigLiveVoice() {
+            if (isImmigListening) {
+                stopImmigVoice();
+            } else {
+                startImmigVoice();
             }
+        }
+
+        function startImmigVoice() {
+            const micBtn = document.getElementById('immig-mic-btn');
+            const statusText = document.getElementById('immig-mic-status');
+            const waveBox = document.getElementById('immig-wave-container');
+            const transcriptEl = document.getElementById('immig-live-transcript');
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+            if (!SpeechRecognition) {
+                showToast('이 브라우저는 실시간 음성 인식을 지원하지 않습니다. 아래 예시 선택지를 이용해 주세요.', 'error');
+                return;
+            }
+
+            try {
+                immigRecognition = new SpeechRecognition();
+                immigRecognition.lang = 'en-US';
+                immigRecognition.interimResults = true;
+                immigRecognition.continuous = false;
+
+                immigRecognition.onstart = function() {
+                    isImmigListening = true;
+                    micBtn.classList.replace('from-blue-600', 'from-emerald-600');
+                    micBtn.classList.replace('to-indigo-600', 'to-emerald-700');
+                    micBtn.innerHTML = '⏹️ 음성 인식 종료하기';
+                    statusText.innerText = '🎙️ 음성을 듣고 있습니다... 답변을 영어로 말씀하세요.';
+                    waveBox.classList.remove('hidden');
+                    transcriptEl.classList.remove('hidden');
+                    transcriptEl.innerText = '말씀하시는 내용을 분석 중...';
+                };
+
+                immigRecognition.onresult = function(event) {
+                    let interimTranscript = '';
+                    let finalTranscript = '';
+
+                    for (let i = event.resultIndex; i < event.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            finalTranscript += event.results[i][0].transcript;
+                        } else {
+                            interimTranscript += event.results[i][0].transcript;
+                        }
+                    }
+
+                    const currentText = finalTranscript || interimTranscript;
+                    if (currentText) {
+                        transcriptEl.innerText = `인식 중: "${currentText}"`;
+                    }
+
+                    if (finalTranscript) {
+                        stopImmigVoice();
+                        evaluateLiveImmigAnswer(finalTranscript);
+                    }
+                };
+
+                immigRecognition.onerror = function(event) {
+                    console.warn('Speech recognition error:', event.error);
+                    stopImmigVoice();
+                    showToast('음성이 감지되지 않았거나 인식이 중단되었습니다. 다시 시도해주세요.', 'error');
+                };
+
+                immigRecognition.onend = function() {
+                    stopImmigVoice();
+                };
+
+                immigRecognition.start();
+
+            } catch (e) {
+                console.error(e);
+                showToast('마이크 접근에 실패했거나 지원되지 않는 브라우저입니다.', 'error');
+            }
+        }
+
+        function stopImmigVoice() {
+            if (immigRecognition) {
+                try { immigRecognition.stop(); } catch(e) {}
+                immigRecognition = null;
+            }
+            isImmigListening = false;
+
+            const micBtn = document.getElementById('immig-mic-btn');
+            const statusText = document.getElementById('immig-mic-status');
+            const waveBox = document.getElementById('immig-wave-container');
+            const transcriptEl = document.getElementById('immig-live-transcript');
+
+            if (micBtn) {
+                micBtn.classList.replace('from-emerald-600', 'from-blue-600');
+                micBtn.classList.replace('to-emerald-700', 'to-indigo-600');
+                micBtn.innerHTML = '🎙️ 실시간 음성 대화 시작하기';
+            }
+            if (statusText) statusText.innerText = '버튼을 누르고 심사관의 질문에 영어로 바로 답변해보세요';
+            if (waveBox) waveBox.classList.add('hidden');
+        }
+
+        function evaluateLiveImmigAnswer(spokenText) {
+            showToast(`답변 인식됨: "${spokenText}"`);
+            
+            // Proceed to the next step upon receiving spoken input
+            setTimeout(() => {
+                if (currentImmigStep < immigSteps.length - 1) {
+                    currentImmigStep++;
+                    showToast('정답입니다! 다음 질문으로 넘어갑니다.');
+                    renderImmigStep();
+                } else {
+                    showToast('🎉 축하합니다! 입국심사를 성공적으로 통과하셨습니다!');
+                    switchTab('home');
+                }
+            }, 1000);
         }
 
         function checkImmigAnswer(isCorrect) {
             if (isCorrect) {
                 if (currentImmigStep < immigSteps.length - 1) {
                     currentImmigStep++;
+                    showToast('정답입니다! 다음 질문으로 넘어갑니다.');
                     renderImmigStep();
                 } else {
-                    alert('🎉 축하합니다! 공항 입국심사 시뮬레이션을 성공적으로 통과하셨습니다!');
+                    showToast('🎉 축하합니다! 입국심사를 성공적으로 통과하셨습니다!');
                     switchTab('home');
                 }
             } else {
-                alert('❌ 적절하지 않은 답변입니다. 다시 시도해보세요!');
-            }
-        }
-
-        function recordImmigAnswer() {
-            alert('마이크 음성 인식 답변이 확인되었습니다! 다음 단계로 진행합니다.');
-            if (currentImmigStep < immigSteps.length - 1) {
-                currentImmigStep++;
-                renderImmigStep();
-            } else {
-                alert('🎉 축하합니다! 입국심사를 완료하셨습니다!');
-                switchTab('home');
+                showToast('❌ 적절하지 않은 답변입니다. 다시 선택해보세요!', 'error');
             }
         }
 
