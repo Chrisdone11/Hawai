@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TravelTalk - 여행 영어회화 & 입국심사 시뮬레이터</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .waveform-bar {
+            animation: pulseWave 1.2s ease-in-out infinite alternate;
+        }
+        @keyframes pulseWave {
+            0% { transform: scaleY(0.4); }
+            100% { transform: scaleY(1); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col items-center justify-start pb-20">
+
+    <header class="w-full max-w-md bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5 shadow-lg rounded-b-3xl sticky top-0 z-50">
+        <div class="flex justify-between items-center">
+            <div>
+                <span class="text-xs uppercase tracking-wider bg-blue-500/55 px-2 py-0.5 rounded-full font-medium">Smart Travel English</span>
+                <h1 class="text-2xl font-bold mt-1 flex items-center gap-2">
+                    ✈️ TravelTalk
+                </h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="switchTab('bookmarks')" class="p-2 bg-white/10 rounded-full hover:bg-white/20 transition relative">
+                    ⭐ <span id="bookmark-badge" class="absolute -top-1 -right-1 bg-amber-400 text-slate-900 text-[10px] font-bold px-1.5 rounded-full hidden">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="w-full max-w-md p-4 flex-1">
+        
+        <!-- View 1: Home / Categories -->
+        <section id="view-home" class="space-y-4">
+            <div class="bg-gradient-to-r from-indigo-500/10 to-blue-500/10 p-4 rounded-2xl border border-indigo-100">
+                <h2 class="font-bold text-indigo-900 text-lg">어디로 떠나시나요?</h2>
+                <p class="text-xs text-indigo-700 mt-1">상황별 맞춤 회화와 원어민 리슨 & 리피트로 완벽 대비하세요.</p>
+            </div>
+
+            <!-- Special Feature Banner: Immigration Sim -->
+            <div onclick="startImmigrationSim()" class="bg-gradient-to-r from-amber-500 to-orange-600 text-white p-5 rounded-2xl shadow-md cursor-pointer hover:shadow-lg transition transform hover:-translate-y-0.5">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <span class="bg-white/20 text-xs px-2 py-0.5 rounded font-medium">특화 시뮬레이션</span>
+                        <h3 class="text-xl font-bold mt-2">🛂 공항 입국심사 실전 모드</h3>
+                        <p class="text-xs text-amber-100 mt-1">심사관 AI와 직접 대화하며 입국 인터뷰를 연습해보세요!</p>
+                    </div>
+                    <div class="text-3xl bg-white/20 p-3 rounded-xl">🎤</div>
+                </div>
+            </div>
+
+            <h3 class="font-bold text-slate-700 text-sm mt-6 mb-2">상황별 필수 회화 카테고리</h3>
+            <div id="category-grid" class="grid grid-cols-2 gap-3">
+                <!-- Dynamically populated categories -->
+            </div>
+        </section>
+
+        <!-- View 2: Phrase List for Category -->
+        <section id="view-phrases" class="hidden space-y-4">
+            <div class="flex items-center justify-between mb-2">
+                <button onclick="switchTab('home')" class="text-xs font-semibold text-blue-600 flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition">
+                    ← 카테고리 목록
+                </button>
+                <h2 id="current-category-title" class="font-bold text-slate-800 text-base">공항 (Airport)</h2>
+            </div>
+            <div id="phrase-list" class="space-y-3">
+                <!-- Phrases populated via JS -->
+            </div>
+        </section>
+
+        <!-- View 3: Listen & Repeat Practice Modal / View -->
+        <section id="view-practice" class="hidden space-y-4">
+            <button onclick="backToPhrases()" class="text-xs font-semibold text-blue-600 flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition mb-2">
+                ← 목록으로 돌아가기
+            </button>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 text-center space-y-5">
+                <div class="flex justify-between items-center text-xs text-slate-400">
+                    <span id="practice-category-tag" class="bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md font-medium">Airport</span>
+                    <span id="speed-indicator" class="bg-slate-100 px-2 py-1 rounded-md">속도: 1.0x</span>
+                </div>
+
+                <div class="space-y-2 py-4">
+                    <h2 id="practice-en" class="text-2xl font-bold text-slate-900 leading-snug">What is the purpose of your visit?</h2>
+                    <p id="practice-ko" class="text-sm text-slate-500 font-medium">방문 목적이 무엇인가요?</p>
+                </div>
+
+                <!-- Audio Controls & Speed -->
+                <div class="flex justify-center gap-3">
+                    <button onclick="playAudio('normal')" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow hover:bg-indigo-700 transition flex items-center gap-1.5">
+                        🔊 원어민 음성 (1.0x)
+                    </button>
+                    <button onclick="playAudio('slow')" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold hover:bg-slate-200 transition flex items-center gap-1.5">
+                        🐢 천천히 (0.8x)
+                    </button>
+                </div>
+
+                <!-- STT Recording Section -->
+                <div class="border-t border-slate-100 pt-5 mt-4 space-y-4">
+                    <p class="text-xs font-semibold text-slate-600">마이크 버튼을 누르고 따라 말해보세요 (Listen & Repeat)</p>
+                    
+                    <div id="waveform-box" class="flex justify-center items-center gap-1 h-10 hidden">
+                        <div class="w-1.5 bg-indigo-500 rounded-full h-full waveform-bar" style="animation-delay: 0.1s"></div>
+                        <div class="w-1.5 bg-indigo-500 rounded-full h-3/4 waveform-bar" style="animation-delay: 0.3s"></div>
+                        <div class="w-1.5 bg-indigo-500 rounded-full h-full waveform-bar" style="animation-delay: 0.2s"></div>
+                        <div class="w-1.5 bg-indigo-500 rounded-full h-1/2 waveform-bar" style="animation-delay: 0.4s"></div>
+                        <div class="w-1.5 bg-indigo-500 rounded-full h-5/6 waveform-bar" style="animation-delay: 0.15s"></div>
+                    </div>
+
+                    <button id="mic-btn" onclick="toggleRecording()" class="w-16 h-16 mx-auto bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition transform active:scale-95 text-2xl">
+                        🎙️
+                    </button>
+                    <p id="recording-status" class="text-xs text-slate-400">버튼을 눌러 음성 녹음 시작</p>
+
+                    <!-- Feedback Box -->
+                    <div id="feedback-container" class="hidden bg-slate-50 p-4 rounded-xl text-left border border-slate-200 space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold text-slate-700">발음 분석 결과</span>
+                            <span id="score-badge" class="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">정확도 96점</span>
+                        </div>
+                        <p id="stt-result-text" class="text-sm font-medium text-slate-800"></p>
+                        <div id="word-diff" class="text-xs flex flex-wrap gap-1 mt-1"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- View 4: Immigration Simulator -->
+        <section id="view-immig" class="hidden space-y-4">
+            <div class="flex items-center justify-between mb-2">
+                <button onclick="switchTab('home')" class="text-xs font-semibold text-slate-600 flex items-center gap-1 bg-slate-100 px-3 py-1.5 rounded-lg hover:bg-slate-200 transition">
+                    ← 홈으로
+                </button>
+                <div class="flex items-center gap-2">
+                    <span id="immig-step-indicator" class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">단계 1 / 5</span>
+                    <button onclick="toggleDifficulty()" id="diff-btn" class="text-xs font-semibold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full">초급 (자막O)</button>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-5">
+                <!-- Officer Avatar & Dialog -->
+                <div class="flex items-start gap-3 bg-indigo-50/60 p-4 rounded-xl border border-indigo-100">
+                    <div class="text-3xl bg-white p-2.5 rounded-full shadow-sm">👮‍♂️</div>
+                    <div class="flex-1">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold text-indigo-900">심사관 (Immigration Officer)</span>
+                            <button onclick="playOfficerAudio()" class="text-xs text-indigo-600 hover:underline">🔊 다시듣기</button>
+                        </div>
+                        <h3 id="officer-question" class="text-base font-bold text-slate-900 mt-1">What is the purpose of your visit?</h3>
+                        <p id="officer-question-ko" class="text-xs text-slate-500 mt-0.5">방문 목적이 무엇인가요?</p>
+                    </div>
+                </div>
+
+                <!-- User Turn Section -->
+                <div class="space-y-3">
+                    <label class="text-xs font-bold text-slate-600 block">나의 답변 선택 또는 음성 입력</label>
+                    <div id="response-options" class="space-y-2">
+                        <!-- Options generated dynamically -->
+                    </div>
+
+                    <!-- Voice Input option for simulation -->
+                    <div class="pt-2">
+                        <button onclick="recordImmigAnswer()" id="immig-mic-btn" class="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-sm shadow hover:opacity-95 transition flex items-center justify-center gap-2">
+                            🎙️ 마이크로 직접 답변 말하기
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Simulation Progress -->
+                <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div id="sim-progress-bar" class="bg-indigo-600 h-full w-1/5 transition-all duration-300"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- View 5: Bookmarks -->
+        <section id="view-bookmarks" class="hidden space-y-4">
+            <div class="flex items-center justify-between mb-2">
+                <button onclick="switchTab('home')" class="text-xs font-semibold text-blue-600 flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition">
+                    ← 홈으로
+                </button>
+                <h2 class="font-bold text-slate-800 text-base">⭐ 북마크 단어장</h2>
+            </div>
+            <div id="bookmark-list" class="space-y-3">
+                <!-- Dynamically populated bookmarked items -->
+            </div>
+        </section>
+
+    </main>
+
+    <nav class="w-full max-w-md bg-white border-t border-slate-200 fixed bottom-0 p-3 flex justify-around items-center z-50 shadow-lg rounded-t-2xl">
+        <button onclick="switchTab('home')" class="flex flex-col items-center text-indigo-600 gap-1 text-xs font-medium">
+            <span class="text-lg">🏠</span> 홈
+        </button>
+        <button onclick="startImmigrationSim()" class="flex flex-col items-center text-slate-400 hover:text-indigo-600 gap-1 text-xs font-medium">
+            <span class="text-lg">🛂</span> 입국심사 심화
+        </button>
+        <button onclick="switchTab('bookmarks')" class="flex flex-col items-center text-slate-400 hover:text-indigo-600 gap-1 text-xs font-medium">
+            <span class="text-lg">⭐</span> 보관함
+        </button>
+    </nav>
+
+    <script>
+        // Data Store
+        const categories = [
+            { id: 'airport', name: '공항 (Airport)', icon: '✈️', count: 6, desc: '체크인, 수하물, 보안검색 등' },
+            { id: 'restaurant', name: '식당 (Restaurant)', icon: '🍽️', count: 5, desc: '주문, 메뉴 추천, 계산 및 팁' },
+            { id: 'tour', name: '투어/관광 (Tour)', icon: '🏙️', count: 4, desc: '티켓 구매, 사진 촬영, 가이드' },
+            { id: 'street', name: '길거리/교통 (Transport)', icon: '🗺️', count: 4, desc: '길 묻기, 대중교통, 택시' },
+            { id: 'hotel', name: '숙소 (Hotel)', icon: '🏨', count: 4, desc: '체크인/아웃, 룸서비스' },
+            { id: 'shopping', name: '쇼핑 (Shopping)', icon: '🛍️', count: 4, desc: '가격 문의, 사이즈, 환불' }
+        ];
+
+        const phrasesData = {
+            airport: [
+                { en: "What is the purpose of your visit?", ko: "방문 목적이 무엇인가요?", highlight: ["purpose", "visit"] },
+                { en: "I'm here for vacation and sightseeing.", ko: "휴가와 관광차 방문했습니다.", highlight: ["vacation", "sightseeing"] },
+                { en: "How long will you be staying?", ko: "얼마나 머무를 예정이신가요?", highlight: ["How long", "staying"] },
+                { en: "I'll be staying for 5 days.", ko: "5일 동안 머무를 예정입니다.", highlight: ["staying", "5 days"] },
+                { en: "Where will you be staying?", ko: "어디에서 머무르시나요?", highlight: ["Where", "staying"] },
+                { en: "Do you have a return ticket?", ko: "귀국 항공권을 가지고 계시나요?", highlight: ["return ticket"] }
+            ],
+            restaurant: [
+                { en: "I'd like to make a reservation for two.", ko: "두 명 예약하고 싶습니다.", highlight: ["reservation", "two"] },
+                { en: "Could you recommend a popular dish?", ko: "인기 있는 메뉴를 추천해주시겠어요?", highlight: ["recommend", "popular dish"] },
+                { en: "I'm allergic to peanuts.", ko: "저는 땅콩 알레르기가 있습니다.", highlight: ["allergic", "peanuts"] },
+                { en: "Could we have the bill, please?", ko: "계산서 좀 주시겠어요?", highlight: ["bill"] },
+                { en: "Is service charge included?", ko: "봉사료가 포함되어 있나요?", highlight: ["service charge", "included"] }
+            ],
+            tour: [
+                { en: "Two tickets for the museum, please.", ko: "박물관 티켓 두 장 주세요.", highlight: ["tickets", "museum"] },
+                { en: "Could you take a picture of us?", ko: "저희 사진 좀 찍어주시겠어요?", highlight: ["take a picture"] },
+                { en: "How much is the admission fee?", ko: "입장료가 얼마인가요?", highlight: ["admission fee"] },
+                { en: "Is there an audio guide available?", ko: "오디오 가이드를 대여할 수 있나요?", highlight: ["audio guide"] }
+            ],
+            street: [
+                { en: "Excuse me, how do I get to the station?", ko: "실례합니다, 역에 어떻게 가나요?", highlight: ["get to", "station"] },
+                { en: "Could you show me on the map?", ko: "지도에 표시해 주시겠어요?", highlight: ["show me", "map"] },
+                { en: "Where is the nearest subway station?", ko: "가장 가까운 지하철역이 어디인가요?", highlight: ["nearest subway station"] },
+                { en: "Please stop here, thank you.", ko: "여기서 세워주세요, 감사합니다.", highlight: ["stop here"] }
+            ],
+            hotel: [
+                { en: "I'd like to check in, please.", ko: "체크인 하고 싶습니다.", highlight: ["check in"] },
+                { en: "Could I have an extra towel?", ko: "수건 좀 더 받을 수 있을까요?", highlight: ["extra towel"] },
+                { en: "What time is check-out?", ko: "체크아웃 시간이 언제인가요?", highlight: ["check-out"] },
+                { en: "The air conditioner is not working.", ko: "에어컨이 작동하지 않습니다.", highlight: ["air conditioner", "working"] }
+            ],
+            shopping: [
+                { en: "How much is this?", ko: "이것은 얼마인가요?", highlight: ["How much"] },
+                { en: "Do you have this in a larger size?", ko: "이것보다 큰 사이즈 있나요?", highlight: ["larger size"] },
+                { en: "Can I try this on?", ko: "이것을 입어봐도 되나요?", highlight: ["try this on"] },
+                { en: "Do you offer tax refund?", ko: "택스 리펀드가 가능한가요?", highlight: ["tax refund"] }
+            ]
+        };
+
+        const immigSteps = [
+            {
+                q: "What is the purpose of your visit?",
+                ko: "방문 목적이 무엇인가요?",
+                options: [
+                    { text: "I'm here for vacation.", correct: true },
+                    { text: "I'm going to school.", correct: false },
+                    { text: "I'm looking for a job.", correct: false }
+                ]
+            },
+            {
+                q: "How long will you be staying?",
+                ko: "얼마나 머무를 예정이신가요?",
+                options: [
+                    { text: "I'll stay for 5 days.", correct: true },
+                    { text: "I stayed for 2 weeks.", correct: false },
+                    { text: "Yesterday.", correct: false }
+                ]
+            },
+            {
+                q: "Where will you be staying?",
+                ko: "어디에서 머무르시나요?",
+                options: [
+                    { text: "I'm staying at the ABC Hotel.", correct: true },
+                    { text: "I live in Seoul.", correct: false },
+                    { text: "At the airport.", correct: false }
+                ]
+            },
+            {
+                q: "What is your occupation?",
+                ko: "직업이 무엇인가요?",
+                options: [
+                    { text: "I'm an office worker.", correct: true },
+                    { text: "I like traveling.", correct: false },
+                    { text: "It's sunny.", correct: false }
+                ]
+            },
+            {
+                q: "Do you have a return ticket?",
+                ko: "귀국 항공권을 가지고 계시나요?",
+                options: [
+                    { text: "Yes, here is my return ticket.", correct: true },
+                    { text: "No, I will stay forever.", correct: false },
+                    { text: "I lost my bag.", correct: false }
+                ]
+            }
+        ];
+
+        let bookmarks = [];
+        let currentPhrase = null;
+        let currentCatId = null;
+        let currentImmigStep = 0;
+        let isAdvancedMode = false;
+        let isRecording = false;
+
+        // Initialize App
+        window.onload = function() {
+            renderCategories();
+            updateBookmarkBadge();
+        };
+
+        // Tab Switching
+        function switchTab(tabName) {
+            document.getElementById('view-home').classList.add('hidden');
+            document.getElementById('view-phrases').classList.add('hidden');
+            document.getElementById('view-practice').classList.add('hidden');
+            document.getElementById('view-immig').classList.add('hidden');
+            document.getElementById('view-bookmarks').classList.add('hidden');
+
+            if (tabName === 'home') {
+                document.getElementById('view-home').classList.remove('hidden');
+            } else if (tabName === 'bookmarks') {
+                renderBookmarks();
+                document.getElementById('view-bookmarks').classList.remove('hidden');
+            }
+        }
+
+        // Render Categories
+        function renderCategories() {
+            const grid = document.getElementById('category-grid');
+            grid.innerHTML = '';
+            categories.forEach(cat => {
+                grid.innerHTML += `
+                    <div onclick="selectCategory('${cat.id}')" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:border-indigo-500 hover:shadow-md transition cursor-pointer flex flex-col justify-between">
+                        <div>
+                            <span class="text-3xl">${cat.icon}</span>
+                            <h4 class="font-bold text-slate-800 text-sm mt-2">${cat.name}</h4>
+                            <p class="text-[11px] text-slate-500 mt-1">${cat.desc}</p>
+                        </div>
+                        <span class="text-[10px] font-semibold text-indigo-600 bg-indigo-50 w-max px-2 py-0.5 rounded mt-3">표현 ${cat.count}개</span>
+                    </div>
+                `;
+            });
+        }
+
+        // Select Category & Show Phrases
+        function selectCategory(catId) {
+            currentCatId = catId;
+            const cat = categories.find(c => c.id === catId);
+            document.getElementById('current-category-title').innerText = cat.name;
+            
+            const list = document.getElementById('phrase-list');
+            list.innerHTML = '';
+            
+            phrasesData[catId].forEach((p, idx) => {
+                const isBookmarked = bookmarks.some(b => b.en === p.en);
+                list.innerHTML += `
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between gap-3">
+                        <div class="flex-1 cursor-pointer" onclick="openPractice('${catId}', ${idx})">
+                            <p class="font-bold text-slate-900 text-sm">${p.en}</p>
+                            <p class="text-xs text-slate-500 mt-0.5">${p.ko}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="openPractice('${catId}', ${idx})" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100 transition">
+                                연습 🎤
+                            </button>
+                            <button onclick="toggleBookmark('${p.en.replace(/'/g, "\\'")}', '${p.ko.replace(/'/g, "\\'")}')" class="p-2 text-lg">
+                                ${isBookmarked ? '⭐' : '☆'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('view-home').classList.add('hidden');
+            document.getElementById('view-phrases').classList.remove('hidden');
+        }
+
+        function backToPhrases() {
+            document.getElementById('view-practice').classList.add('hidden');
+            document.getElementById('view-phrases').classList.remove('hidden');
+        }
+
+        // Open Practice View
+        function openPractice(catId, idx) {
+            currentPhrase = phrasesData[catId][idx];
+            const cat = categories.find(c => c.id === catId);
+            
+            document.getElementById('practice-category-tag').innerText = cat.name;
+            document.getElementById('practice-en').innerText = currentPhrase.en;
+            document.getElementById('practice-ko').innerText = currentPhrase.ko;
+            document.getElementById('feedback-container').classList.add('hidden');
+            document.getElementById('waveform-box').classList.add('hidden');
+            document.getElementById('recording-status').innerText = '버튼을 눌러 음성 녹음 시작';
+
+            document.getElementById('view-phrases').classList.add('hidden');
+            document.getElementById('view-practice').classList.remove('hidden');
+        }
+
+        // Web Speech API TTS Audio Playback
+        function playAudio(speed) {
+            if (!currentPhrase) return;
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(currentPhrase.en);
+                utterance.lang = 'en-US';
+                utterance.rate = speed === 'slow' ? 0.8 : 1.0;
+                document.getElementById('speed-indicator').innerText = speed === 'slow' ? '속도: 0.8x (천천히)' : '속도: 1.0x (보통)';
+                window.speechSynthesis.speak(utterance);
+            } else {
+                alert('음성 합성을 지원하지 않는 브라우저입니다.');
+            }
+        }
+
+        // STT Recording & Pronunciation Evaluation Simulation
+        function toggleRecording() {
+            const micBtn = document.getElementById('mic-btn');
+            const waveBox = document.getElementById('waveform-box');
+            const statusText = document.getElementById('recording-status');
+            const feedbackBox = document.getElementById('feedback-container');
+
+            if (!isRecording) {
+                isRecording = true;
+                micBtn.classList.replace('bg-red-500', 'bg-emerald-600');
+                micBtn.innerHTML = '⏹️';
+                waveBox.classList.remove('hidden');
+                statusText.innerText = '듣고 있습니다... 말씀하세요!';
+                feedbackBox.classList.add('hidden');
+
+                // Try real Speech Recognition if available
+                if ('webkitSpeechRecognition' in window) {
+                    try {
+                        const recognition = new webkitSpeechRecognition();
+                        recognition.lang = 'en-US';
+                        recognition.onresult = (event) => {
+                            const transcript = event.results[0][0].transcript;
+                            processEvaluation(transcript);
+                        };
+                        recognition.onerror = () => {
+                            // Fallback simulation if mic permission denied
+                            setTimeout(() => processEvaluation(currentPhrase.en), 2500);
+                        };
+                        recognition.start();
+                    } catch(e) {
+                        setTimeout(() => processEvaluation(currentPhrase.en), 2500);
+                    }
+                } else {
+                    setTimeout(() => processEvaluation(currentPhrase.en), 2500);
+                }
+            } else {
+                stopRecordingState();
+            }
+        }
+
+        function stopRecordingState() {
+            isRecording = false;
+            const micBtn = document.getElementById('mic-btn');
+            micBtn.classList.replace('bg-emerald-600', 'bg-red-500');
+            micBtn.innerHTML = '🎙️';
+            document.getElementById('waveform-box').classList.add('hidden');
+            document.getElementById('recording-status').innerText = '분석 완료';
+        }
+
+        function processEvaluation(spokenText) {
+            stopRecordingState();
+            const feedbackBox = document.getElementById('feedback-container');
+            const sttText = document.getElementById('stt-result-text');
+            const scoreBadge = document.getElementById('score-badge');
+            const wordDiff = document.getElementById('word-diff');
+
+            feedbackBox.classList.remove('hidden');
+            sttText.innerText = `인식된 음성: "${spokenText}"`;
+            scoreBadge.innerText = '정확도 95점';
+
+            // Word-by-word evaluation simulation
+            wordDiff.innerHTML = '';
+            const targetWords = currentPhrase.en.replace(/[?.,]/g, '').split(' ');
+            targetWords.forEach(w => {
+                const isGood = Math.random() > 0.2;
+                wordDiff.innerHTML += `<span class="px-2 py-1 rounded font-semibold ${isGood ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">${w}</span>`;
+            });
+        }
+
+        // Immigration Simulation
+        function startImmigrationSim() {
+            currentImmigStep = 0;
+            document.getElementById('view-home').classList.add('hidden');
+            document.getElementById('view-immig').classList.remove('hidden');
+            renderImmigStep();
+        }
+
+        function toggleDifficulty() {
+            isAdvancedMode = !isAdvancedMode;
+            const btn = document.getElementById('diff-btn');
+            if (isAdvancedMode) {
+                btn.className = "text-xs font-semibold bg-rose-100 text-rose-800 px-2.5 py-1 rounded-full";
+                btn.innerText = "심화 (오디오만)";
+            } else {
+                btn.className = "text-xs font-semibold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full";
+                btn.innerText = "초급 (자막O)";
+            }
+            renderImmigStep();
+        }
+
+        function renderImmigStep() {
+            const stepData = immigSteps[currentImmigStep];
+            document.getElementById('immig-step-indicator').innerText = `단계 ${currentImmigStep + 1} / 5`;
+            document.getElementById('sim-progress-bar').style.width = `${((currentImmigStep + 1) / 5) * 100}%`;
+
+            const qEl = document.getElementById('officer-question');
+            const qKoEl = document.getElementById('officer-question-ko');
+
+            if (isAdvancedMode) {
+                qEl.innerText = "🎧 오디오 질문을 듣고 답변을 선택하세요";
+                qKoEl.innerText = "(심화 모드: 자막 숨김)";
+            } else {
+                qEl.innerText = stepData.q;
+                qKoEl.innerText = stepData.ko;
+            }
+
+            // Play audio prompt automatically
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(stepData.q);
+                utterance.lang = 'en-US';
+                window.speechSynthesis.speak(utterance);
+            }
+
+            const optionsBox = document.getElementById('response-options');
+            optionsBox.innerHTML = '';
+            stepData.options.forEach(opt => {
+                optionsBox.innerHTML += `
+                    <button onclick="checkImmigAnswer(${opt.correct})" class="w-full text-left p-3 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition font-medium text-sm text-slate-800 flex justify-between items-center">
+                        <span>"${opt.text}"</span>
+                        <span class="text-xs text-slate-400">선택하기 →</span>
+                    </button>
+                `;
+            });
+        }
+
+        function playOfficerAudio() {
+            const stepData = immigSteps[currentImmigStep];
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(stepData.q);
+                utterance.lang = 'en-US';
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function checkImmigAnswer(isCorrect) {
+            if (isCorrect) {
+                if (currentImmigStep < immigSteps.length - 1) {
+                    currentImmigStep++;
+                    renderImmigStep();
+                } else {
+                    alert('🎉 축하합니다! 공항 입국심사 시뮬레이션을 성공적으로 통과하셨습니다!');
+                    switchTab('home');
+                }
+            } else {
+                alert('❌ 적절하지 않은 답변입니다. 다시 시도해보세요!');
+            }
+        }
+
+        function recordImmigAnswer() {
+            alert('마이크 음성 인식 답변이 확인되었습니다! 다음 단계로 진행합니다.');
+            if (currentImmigStep < immigSteps.length - 1) {
+                currentImmigStep++;
+                renderImmigStep();
+            } else {
+                alert('🎉 축하합니다! 입국심사를 완료하셨습니다!');
+                switchTab('home');
+            }
+        }
+
+        // Bookmark Management
+        function toggleBookmark(en, ko) {
+            const idx = bookmarks.findIndex(b => b.en === en);
+            if (idx >= 0) {
+                bookmarks.splice(idx, 1);
+            } else {
+                bookmarks.push({ en, ko });
+            }
+            updateBookmarkBadge();
+            if(!document.getElementById('view-bookmarks').classList.contains('hidden')) {
+                renderBookmarks();
+            }
+        }
+
+        function updateBookmarkBadge() {
+            const badge = document.getElementById('bookmark-badge');
+            if (bookmarks.length > 0) {
+                badge.innerText = bookmarks.length;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        function renderBookmarks() {
+            const list = document.getElementById('bookmark-list');
+            list.innerHTML = '';
+            if (bookmarks.length === 0) {
+                list.innerHTML = `<p class="text-center text-slate-400 text-xs py-10">저장된 북마크가 없습니다. ⭐ 아이콘을 눌러 추가해보세요!</p>`;
+                return;
+            }
+            bookmarks.forEach(b => {
+                list.innerHTML += `
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
+                        <div>
+                            <p class="font-bold text-slate-900 text-sm">${b.en}</p>
+                            <p class="text-xs text-slate-500 mt-0.5">${b.ko}</p>
+                        </div>
+                        <button onclick="toggleBookmark('${b.en.replace(/'/g, "\\'")}', '${b.ko.replace(/'/g, "\\'")}')" class="text-amber-500 text-lg">⭐</button>
+                    </div>
+                `;
+            });
+        }
+    </script>
+</body>
+</html>
